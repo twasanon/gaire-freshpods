@@ -286,8 +286,18 @@
   font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 0.86;
+  line-height: 0.94;
   font-variant-numeric: tabular-nums lining-nums;
+}
+
+/*
+  A grid cell that holds a type-figure. The figure size follows the column,
+  not the viewport — otherwise a long word like “Manual” in the narrow third
+  stats column is clipped as the window is resized.
+*/
+@utility figure-slot {
+  container-type: inline-size;
+  min-width: 0;
 }
 
 /* A single link treatment used everywhere a link appears in prose. */

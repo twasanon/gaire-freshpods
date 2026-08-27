@@ -68,8 +68,9 @@ export function Problem() {
         </div>
 
         {/*
-          Three figures, but deliberately unequal: the widths follow the weight
-          of each claim rather than dividing the row into thirds.
+          Unequal columns follow claim weight, but the third figure is a word
+          (“Manual”), not a short numeral, so it gets four columns and 10×
+          takes three.
         */}
         <dl className="mt-20 grid gap-y-10 border-t border-t-[color:var(--rule-paper)] pt-10 md:mt-28 md:grid-12">
           {problem.stats.map((stat, i) => (
@@ -78,13 +79,13 @@ export function Problem() {
               step={i}
               className={
                 i === 0
-                  ? 'md:col-span-5'
+                  ? 'figure-slot md:col-span-5'
                   : i === 1
-                    ? 'md:col-span-4 md:border-l md:border-l-[color:var(--rule-paper)] md:pl-10'
-                    : 'md:col-span-3 md:border-l md:border-l-[color:var(--rule-paper)] md:pl-10'
+                    ? 'figure-slot md:col-span-3 md:border-l md:border-l-[color:var(--rule-paper)] md:pl-10'
+                    : 'figure-slot md:col-span-4 md:border-l md:border-l-[color:var(--rule-paper)] md:pl-10'
               }
             >
-              <dt className="type-figure text-[clamp(3.5rem,7vw,6.5rem)] text-paper-ink">{stat.figure}</dt>
+              <dt className="type-figure text-[clamp(2.5rem,22cqi,6.5rem)] text-paper-ink">{stat.figure}</dt>
               <dd>
                 <p className="type-data mt-3 text-paper-ink">{stat.unit}</p>
                 <p className="mt-4 max-w-[34ch] text-ui leading-relaxed text-paper-muted">{stat.note}</p>
