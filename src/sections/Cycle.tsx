@@ -33,6 +33,8 @@ export function Cycle() {
   const autoplayClock = useRef(performance.now());
   const autoplayOriginP = useRef<number | null>(null);
   const wasSticky = useRef(false);
+  const gestureDir = useRef<0 | 1 | -1>(0);
+  const releasedAt = useRef(0);
   const driveProgress = useMotionValue(0);
 
   const { scrollYProgress } = useScroll({ target: track, offset: ['start start', 'end end'] });
@@ -44,6 +46,16 @@ export function Cycle() {
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
     if (autoplay.current) return;
+    // After autoplay pauses, a lagging scroll event would rewind the playhead
+    // (Aroma jumping back to empty). Honour a rewind only when the visitor is
+    // actually scrolling up.
+    const prev = scrollProgress.current;
+    if (v < prev - 0.012 && gestureDir.current !== -1 && performance.now() - releasedAt.current < 800) {
+      const raw = Math.min(phases.length - 1, Math.max(0, Math.floor(prev * phases.length + 0.12)));
+      const shown = phaseRef.current;
+      desiredPhase.current = Math.min(shown + 1, Math.max(shown - 1, raw));
+      return;
+    }
     scrollProgress.current = v;
     driveProgress.set(v);
     // Bias forward slightly so the copy changes as the visual starts to change,
@@ -84,7 +96,10 @@ export function Cycle() {
     };
 
     const noteUser = () => {
-      if (autoplay.current) snapToDriven();
+      if (autoplay.current) {
+        snapToDriven();
+        releasedAt.current = performance.now();
+      }
       lastUserInput.current = performance.now();
       autoplay.current = false;
       autoplayOriginP.current = null;
@@ -153,7 +168,9 @@ export function Cycle() {
       if (!autoplay.current) {
         autoplay.current = true;
         engaged.current = true;
-        autoplayOriginP.current = Math.min(0.97, Math.max(0, p));
+        // Resume from the visual playhead, not window.scrollY — iOS often
+        // lags behind, which made a phase restart from empty after a flick.
+        autoplayOriginP.current = Math.min(0.97, Math.max(0, scrollProgress.current));
         autoplayClock.current = now;
       }
 
@@ -180,6 +197,7 @@ export function Cycle() {
     raf = requestAnimationFrame(tick);
 
     const onWheel = (e: WheelEvent) => {
+      gestureDir.current = e.deltaY > 0 ? 1 : -1;
       noteUser();
       const limit = gate(e.deltaY > 0 ? 1 : -1);
       if (limit == null) return;
@@ -202,6 +220,7 @@ export function Cycle() {
       const y = e.touches[0]?.clientY;
       if (y == null || lastTouchY.current == null) return;
       const goingDown = lastTouchY.current - y > 0;
+      gestureDir.current = goingDown ? 1 : -1;
       lastTouchY.current = y;
       const limit = gate(goingDown ? 1 : -1);
       if (limit == null) return;

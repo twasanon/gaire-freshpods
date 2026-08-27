@@ -146,6 +146,7 @@ export function FinishPicker({
           return (
             <button
               key={c.id}
+              type="button"
               role="radio"
               aria-checked={active}
               onClick={() => onChange(c.id)}

@@ -38,11 +38,9 @@ export function Hero() {
   const ease = [0.16, 1, 0.3, 1] as const;
 
   return (
-    <section ref={section} id="top" className="relative">
+    <section ref={section} id="top" className="relative" style={{ overflowAnchor: 'none' }}>
       <div
-        className={`pointer-events-none relative flex flex-col ${
-          stacked ? 'min-h-dvh pb-12' : 'min-h-svh'
-        }`}
+        className={`pointer-events-none relative flex flex-col ${stacked ? 'h-svh' : 'min-h-svh'}`}
       >
         {/*
           Behind the canvas. The outlined second line is meant to run through

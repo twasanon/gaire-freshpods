@@ -7,6 +7,7 @@ import { StudioEnv } from './StudioEnv';
 import { FloorGlow } from './FloorGlow';
 import { FogVeil } from './FogVeil';
 import { HelmetLoadVeil } from './HelmetLoadVeil';
+import { CycleAtmosphere } from './CycleAtmosphere';
 import { Boundary } from './Boundary';
 import type { OrbitDriver } from './orbit';
 import { FOV, FRAMINGS, solveFraming } from './framing';
@@ -67,6 +68,7 @@ export function Stage() {
             <Director act={act} orbit={orbit} reduced={!!reduced}>
               <Machine tier={capability.tier} colorway={colorway} drive={drive} onReady={markLive} />
               <FogVeil drive={fog} />
+              <CycleAtmosphere drive={drive} />
               <HelmetLoadVeil drive={helmetReveal} />
             </Director>
           </Suspense>
@@ -287,9 +289,9 @@ function CycleDriver({
     displayed.current += (cycleProgress.current - displayed.current) * (1 - Math.exp(-10 * delta));
     const t = displayed.current;
     // Load 0–0.25 · Disinfect 0.25–0.5 · Aroma 0.5–0.75 · Dry 0.75–1
-    drive.current.uv = band(t, 0.18, 0.27, 0.48, 0.6);
+    drive.current.uv = band(t, 0.22, 0.28, 0.48, 0.55);
     drive.current.panel = band(t, 0.04, 0.12, 0.94, 1.0);
-    drive.current.heat = band(t, 0.68, 0.76, 0.94, 1.0);
+    drive.current.heat = band(t, 0.72, 0.78, 0.96, 1.0);
     fog.current = band(t, 0.43, 0.52, 0.7, 0.8);
     helmetReveal.current = smoothstep(t, 0.1, 0.24);
   });

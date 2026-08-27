@@ -171,8 +171,8 @@ export function Machine({ tier, colorway, drive, onReady }: Props) {
     [handles.decals]
   );
 
-  const uvColor = useMemo(() => new THREE.Color('#8a9bff'), []);
-  const heatColor = useMemo(() => new THREE.Color('#ffb45d'), []);
+  const uvColor = useMemo(() => new THREE.Color('#6e8dff'), []);
+  const heatColor = useMemo(() => new THREE.Color('#ff7a28'), []);
   const restColor = useMemo(() => new THREE.Color('#111719'), []);
   const effectColor = useMemo(() => new THREE.Color(), []);
   const smoothed = useRef<MachineDrive>({ uv: 0, panel: 0, heat: 0 });
@@ -201,7 +201,7 @@ export function Machine({ tier, colorway, drive, onReady }: Props) {
     };
     if (chamber) {
       effectColor.copy(restColor).lerp(uvColor, s.uv).lerp(heatColor, s.heat);
-      chamber.emissiveIntensity = 0.22 + s.uv * 4.2 + s.heat * 3.6;
+      chamber.emissiveIntensity = 0.18 + s.uv * 7.4 + s.heat * 6.2;
       chamber.emissive.copy(effectColor);
     }
     if (panel) {
