@@ -31,6 +31,8 @@ export function Cycle() {
   const phaseMotion = useMotionValue(0);
   const lastUserInput = useRef(performance.now());
   const lastGesture = useRef(0);
+  const lastWheel = useRef(0);
+  const gestureFromCycle = useRef(false);
   const autoplay = useRef(false);
   const autoplayClock = useRef(performance.now());
   const autoplayOriginP = useRef<number | null>(null);
@@ -81,12 +83,11 @@ export function Cycle() {
   }, [reduced]);
 
   /**
-   * While the track is on screen, a gesture may only reach the neighbouring
-   * phase. Fast mobile flicks otherwise carry past Dry before the stepper runs.
-   * If the visitor sits still on Load, the same loop eases the track forward
-   * so the bars and chamber keep moving. Hash jumps (`src/lib/anchors.ts`)
-   * pause this loop so Machine / The problem / Specifications are not caught
-   * in the chamber.
+   * While the visitor is already in the close-up, a gesture may only reach the
+   * neighbouring phase so a flick cannot skip Load → Dry. A flick that *starts*
+   * outside the track (footer → hero, or hero → footer) must pass through;
+   * grabbing it mid-swipe is what stuck people at Disinfection. Hash jumps
+   * (`src/lib/anchors.ts`) also pause this loop.
    */
   useEffect(() => {
     const snapToDriven = () => {
@@ -99,12 +100,20 @@ export function Cycle() {
       window.scrollTo(0, y);
     };
 
+    const trackIsHeld = () => {
+      const node = track.current;
+      if (!node) return false;
+      const r = node.getBoundingClientRect();
+      return r.top <= 96 && r.bottom >= window.innerHeight * 0.55;
+    };
+
     const noteUser = () => {
       if (isPageJumping()) {
         lastUserInput.current = performance.now();
         autoplay.current = false;
         autoplayOriginP.current = null;
         engaged.current = false;
+        gestureFromCycle.current = false;
         return;
       }
       if (autoplay.current) {
@@ -117,11 +126,22 @@ export function Cycle() {
       autoplayOriginP.current = null;
     };
 
+    const beginGesture = () => {
+      noteUser();
+      // Latch at gesture *start*. If we re-evaluate mid-swipe, a footer→hero
+      // flick would engage as soon as the track peeked in and get stuck.
+      gestureFromCycle.current = trackIsHeld();
+    };
+
     const gate = (direction: 1 | -1) => {
       const el = track.current;
       if (!el || unlocking.current || autoplay.current || isPageJumping()) return null;
-      // The sticky track, not the whole #cycle band — the heading and LCD would
-      // otherwise keep this true while The problem or Colours is on screen.
+      // Through-scrolls (bottom of the page → top, or the reverse) never
+      // started on the close-up. Do not clamp them.
+      if (!gestureFromCycle.current) {
+        engaged.current = false;
+        return null;
+      }
       const bounds = el.getBoundingClientRect();
       const inSection = bounds.bottom >= 48 && bounds.top <= window.innerHeight - 48;
       if (inSection) engaged.current = true;
@@ -146,7 +166,10 @@ export function Cycle() {
         return loadStart;
       }
 
-      return direction > 0 ? yFor(shown + 1, 0.12) : yFor(shown - 1, 0.88);
+      // Up-limit must sit *inside* the previous phase. 0.88 landed on the
+      // +0.12 copy-bias boundary, which still mapped to the current phase
+      // (Disinfection) and could not be left.
+      return direction > 0 ? yFor(shown + 1, 0.12) : yFor(shown - 1, 0.35);
     };
 
     const onScroll = (now: number) => {
@@ -221,8 +244,11 @@ export function Cycle() {
     raf = requestAnimationFrame(tick);
 
     const onWheel = (e: WheelEvent) => {
+      const now = performance.now();
+      if (now - lastWheel.current > 180) beginGesture();
+      else noteUser();
+      lastWheel.current = now;
       gestureDir.current = e.deltaY > 0 ? 1 : -1;
-      noteUser();
       const limit = gate(e.deltaY > 0 ? 1 : -1);
       if (limit == null) return;
       if (e.deltaY > 0 && window.scrollY >= limit - 1) {
@@ -235,7 +261,7 @@ export function Cycle() {
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      noteUser();
+      beginGesture();
       lastTouchY.current = e.touches[0]?.clientY ?? null;
     };
 
