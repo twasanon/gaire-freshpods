@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { Nav } from './components/Nav';
 import { Backdrop } from './components/Backdrop';
 import { MachinePoster } from './components/MachinePoster';
@@ -14,8 +15,11 @@ import { Company } from './sections/Company';
 import { Demo } from './sections/Demo';
 import { StageProvider } from './state/stage';
 import { LocaleProvider } from './state/locale';
+import { installAnchorNav } from './lib/anchors';
 
 export default function App() {
+  useLayoutEffect(() => installAnchorNav(), []);
+
   return (
     <LocaleProvider>
       <StageProvider>

@@ -16,7 +16,7 @@ export function Lab() {
   const { report, reviewer } = lab;
 
   return (
-    <section id="lab" className="relative z-20 bg-paper text-paper-ink" style={{ scrollMarginTop: '4rem' }}>
+    <section id="lab" className="relative z-20 bg-paper text-paper-ink">
       <div className="measure py-20 md:py-24">
         <Reveal>
           <h2 className="type-h2 max-w-[24ch]">{lab.heading}</h2>

@@ -16,7 +16,7 @@ export function Problem() {
     { colour: 'var(--color-way-red)', left: '64.8%', top: '52.9%' },
   ];
   return (
-    <section id="problem" className="relative z-20 bg-paper text-paper-ink" style={{ scrollMarginTop: '4rem' }}>
+    <section id="problem" className="relative z-20 bg-paper text-paper-ink">
       <div className="measure py-24 md:py-36">
         <div className="grid gap-y-14 md:grid-12">
           <Reveal className="md:col-span-7">

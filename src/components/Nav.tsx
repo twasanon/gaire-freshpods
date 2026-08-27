@@ -15,6 +15,9 @@ export function Nav() {
       const delta = nextY - lastY.current;
       setScrolled(nextY > 40);
       if (nextY < 72) setVisible(true);
+      // A hash jump is one huge delta. Keep the header up so the section
+      // title is not sitting under an empty 5rem gap, or hidden on the way.
+      else if (Math.abs(delta) > window.innerHeight * 0.8) setVisible(true);
       else if (Math.abs(delta) > 6) setVisible(delta < 0);
       lastY.current = nextY;
     };

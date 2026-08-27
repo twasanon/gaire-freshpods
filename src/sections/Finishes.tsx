@@ -19,9 +19,9 @@ export function Finishes() {
   const roomy = useViewport().width >= 640;
 
   return (
-    <section className="relative z-20 bg-ink-900">
+    <section id="colours" className="relative z-20 bg-ink-900">
       <div className="measure py-20 md:py-24">
-        <SectionHead id="colours" title={copy.colours.heading} rule={false} className="text-center [&>h2]:mx-auto" />
+        <SectionHead title={copy.colours.heading} rule={false} className="text-center [&>h2]:mx-auto" />
 
         <div className="mt-12 md:mt-16">
           <Reveal className="mx-auto w-full md:w-[58%]">

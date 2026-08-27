@@ -9,9 +9,9 @@ export function Specs() {
   const columns = [specs.rows.slice(0, half), specs.rows.slice(half)];
 
   return (
-    <section className="relative z-20 bg-ink-850">
+    <section id="specs" className="relative z-20 bg-ink-850">
       <div className="measure py-20 md:py-24">
-        <SectionHead id="specs" title={specs.heading} rule={false} />
+        <SectionHead title={specs.heading} rule={false} />
 
         <div className="mt-12 grid gap-x-12 gap-y-0 md:mt-16 md:grid-cols-2">
           {columns.map((column, ci) => (

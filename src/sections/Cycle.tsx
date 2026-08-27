@@ -5,6 +5,7 @@ import { Reveal } from '../components/Reveal';
 import { SectionHead } from '../components/ui';
 import { useStage } from '../state/stage';
 import { useLocale } from '../state/locale';
+import { beginPageJump, isPageJumping } from '../lib/anchors';
 
 /**
  * A held close-up of the chamber, scrubbed by scroll.
@@ -29,6 +30,7 @@ export function Cycle() {
   const scrollProgress = useRef(0);
   const phaseMotion = useMotionValue(0);
   const lastUserInput = useRef(performance.now());
+  const lastGesture = useRef(0);
   const autoplay = useRef(false);
   const autoplayClock = useRef(performance.now());
   const autoplayOriginP = useRef<number | null>(null);
@@ -82,7 +84,9 @@ export function Cycle() {
    * While the track is on screen, a gesture may only reach the neighbouring
    * phase. Fast mobile flicks otherwise carry past Dry before the stepper runs.
    * If the visitor sits still on Load, the same loop eases the track forward
-   * so the bars and chamber keep moving.
+   * so the bars and chamber keep moving. Hash jumps (`src/lib/anchors.ts`)
+   * pause this loop so Machine / The problem / Specifications are not caught
+   * in the chamber.
    */
   useEffect(() => {
     const snapToDriven = () => {
@@ -96,20 +100,29 @@ export function Cycle() {
     };
 
     const noteUser = () => {
+      if (isPageJumping()) {
+        lastUserInput.current = performance.now();
+        autoplay.current = false;
+        autoplayOriginP.current = null;
+        engaged.current = false;
+        return;
+      }
       if (autoplay.current) {
         snapToDriven();
         releasedAt.current = performance.now();
       }
       lastUserInput.current = performance.now();
+      lastGesture.current = performance.now();
       autoplay.current = false;
       autoplayOriginP.current = null;
     };
 
     const gate = (direction: 1 | -1) => {
       const el = track.current;
-      if (!el || unlocking.current || autoplay.current) return null;
-      const section = el.closest('#cycle');
-      const bounds = (section ?? el).getBoundingClientRect();
+      if (!el || unlocking.current || autoplay.current || isPageJumping()) return null;
+      // The sticky track, not the whole #cycle band — the heading and LCD would
+      // otherwise keep this true while The problem or Colours is on screen.
+      const bounds = el.getBoundingClientRect();
       const inSection = bounds.bottom >= 48 && bounds.top <= window.innerHeight - 48;
       if (inSection) engaged.current = true;
       if (!engaged.current) return null;
@@ -136,7 +149,11 @@ export function Cycle() {
       return direction > 0 ? yFor(shown + 1, 0.12) : yFor(shown - 1, 0.88);
     };
 
-    const onScroll = () => {
+    const onScroll = (now: number) => {
+      // Only clamp while a finger or wheel is moving. After a hash jump the
+      // track can still peek into view; clamping then yanks Colours / Problem
+      // back into the chamber.
+      if (now - lastGesture.current > 120) return;
       const down = gate(1);
       if (down != null && window.scrollY > down + 0.5) window.scrollTo(0, down);
       const up = gate(-1);
@@ -144,7 +161,7 @@ export function Cycle() {
     };
 
     const tickAutoplay = (now: number) => {
-      if (reduced) return;
+      if (reduced || isPageJumping()) return;
       const el = track.current;
       if (!el) return;
 
@@ -190,8 +207,15 @@ export function Cycle() {
 
     let raf = 0;
     const tick = (now: number) => {
-      onScroll();
-      tickAutoplay(now);
+      if (isPageJumping()) {
+        autoplay.current = false;
+        autoplayOriginP.current = null;
+        engaged.current = false;
+        lastUserInput.current = now;
+      } else {
+        onScroll(now);
+        tickAutoplay(now);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -238,14 +262,15 @@ export function Cycle() {
     };
 
     const onHash = () => {
-      if (location.hash === '#cycle') return;
+      beginPageJump();
       unlocking.current = true;
       engaged.current = false;
       autoplay.current = false;
       autoplayOriginP.current = null;
+      lastUserInput.current = performance.now();
       window.setTimeout(() => {
         unlocking.current = false;
-      }, 900);
+      }, 1600);
     };
 
     window.addEventListener('hashchange', onHash);
@@ -314,7 +339,7 @@ export function Cycle() {
   const active = phases[phase];
 
   return (
-    <section id="cycle" className="relative" style={{ scrollMarginTop: '4rem', overflowAnchor: 'none' }}>
+    <section id="cycle" className="relative" style={{ overflowAnchor: 'none' }}>
       <div className="relative z-30 bg-ink-950 pb-16 pt-20 md:pb-24 md:pt-24">
         <div className="measure">
           <SectionHead title={copy.cycle.heading} lead={copy.cycle.lead} rule={false} />

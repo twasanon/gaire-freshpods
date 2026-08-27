@@ -151,7 +151,7 @@ function ContactShell({ children }: { children: React.ReactNode }) {
   const { copy } = useLocale();
   const demoCopy = copy.demo;
   return (
-    <section id="demo" className="grain relative z-20 bg-ink-950" style={{ scrollMarginTop: '4rem' }}>
+    <section id="demo" className="grain relative z-20 bg-ink-950">
       <div className="measure py-20 md:py-24">
         <SectionHead title={demoCopy.heading} rule={false} />
         <div className="mt-12 grid gap-y-16 md:mt-16 md:grid-12">
