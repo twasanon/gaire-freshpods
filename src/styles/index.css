@@ -1,0 +1,360 @@
+@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '@fontsource-variable/newsreader/wght.css';
+@import '@fontsource-variable/newsreader/wght-italic.css';
+@import '@fontsource-variable/noto-sans-devanagari/wght.css';
+
+@import 'tailwindcss';
+
+/*
+  Gaire Freshpods design system.
+
+  Two voices: Bricolage Grotesque is the machine (headlines, controls, spec
+  data), Newsreader is the person (prose, quotes). Nothing else.
+
+  One shading logic for the whole site: structure is drawn with hairline rules
+  on a ruled technical grid, depth comes from background value, and there are
+  no shadows and no cards. Corners are square everywhere except controls that
+  are meant to be pressed or picked.
+*/
+
+@theme {
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', Georgia, serif;
+  --font-body: 'Newsreader Variable', 'Newsreader', Georgia, 'Times New Roman', serif;
+
+  /* Deep teal-black. Reads as brand rather than as generic dark mode. */
+  --color-ink-950: #031215;
+  --color-ink-900: #05191d;
+  --color-ink-850: #072226;
+  --color-ink-800: #0a2c31;
+  --color-ink-700: #10393f;
+  --color-ink-600: #17505a;
+  --color-ink-500: #216b76;
+
+  /* Brand marks, sampled from the logo artwork. */
+  --color-teal-600: #06777a;
+  --color-teal-500: #07969a;
+  --color-teal-400: #12b3b0;
+  --color-teal-300: #52d8cf;
+  --color-signal: #e5111b;
+  --color-signal-bright: #ff3a3f;
+
+  /* Warm document stock for the two bright sections. */
+  --color-paper: #f2eee4;
+  --color-paper-shade: #e6e0d1;
+  --color-paper-ink: #06272b;
+  --color-paper-muted: #4c6367;
+
+  --color-fg: #e9f2f1;
+  --color-fg-muted: #a3c0bf;
+  --color-fg-dim: #6f9294;
+
+  /* Only ever used where the page is talking about UV-C emission. */
+  --color-uv: #8a9bff;
+  --color-uv-deep: #4b5bd6;
+
+  /* Cabinet finishes, sampled from the supplied product renders. */
+  --color-way-yellow: #fdd100;
+  --color-way-blue: #14cbd4;
+  --color-way-red: #e30b10;
+
+  --radius-control: 2px;
+
+  /* Studio pools that follow the selected cabinet finish. */
+  --color-pool-yellow: #c9a008;
+  --color-pool-blue: #0e8f96;
+  --color-pool-red: #9a1218;
+
+  --text-body: 1.1875rem;
+  --text-body--line-height: 1.62;
+  --text-lead: clamp(1.3125rem, 0.95rem + 0.85vw, 1.625rem);
+  --text-lead--line-height: 1.5;
+  --text-ui: 1.125rem;
+  --text-ui--line-height: 1.4;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  :root {
+    /* One measure for the ruled grid so rules always line up across sections. */
+    --gutter: clamp(1.25rem, 4vw, 5.5rem);
+    --rule: color-mix(in oklab, var(--color-ink-500) 42%, transparent);
+    --rule-paper: color-mix(in oklab, var(--color-paper-ink) 20%, transparent);
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--rule);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+    scroll-behavior: auto;
+  }
+
+  /* The two Latin faces do not contain Devanagari glyphs. Nepali uses one
+     dedicated variable family for both voices so its forms remain deliberate
+     instead of falling through to an unpredictable device font. */
+  html:lang(ne-NP) {
+    --font-display: 'Noto Sans Devanagari Variable', sans-serif;
+    --font-body: 'Noto Sans Devanagari Variable', sans-serif;
+  }
+
+  html:lang(ne-NP) h1,
+  html:lang(ne-NP) h2,
+  html:lang(ne-NP) h3,
+  html:lang(ne-NP) h4 {
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+  }
+
+  html:lang(ne-NP) .type-monument {
+    line-height: 0.94;
+    letter-spacing: -0.025em;
+  }
+
+  body {
+    background-color: var(--color-ink-900);
+    color: var(--color-fg);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: 1.62;
+    font-weight: 420;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.028em;
+    line-height: 0.94;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Real focus design, not the default ring, and never invisible on ink. */
+  :focus-visible {
+    outline: 2px solid var(--color-teal-300);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: var(--color-teal-500);
+    color: #fff;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  img,
+  canvas {
+    display: block;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@keyframes contamination-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.9);
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentcolor 54%, transparent), 0 0 0.8rem currentcolor;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow: 0 0 0 0.7rem color-mix(in srgb, currentcolor 0%, transparent), 0 0 1.35rem currentcolor;
+  }
+}
+
+@keyframes contamination-key-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0.2rem currentcolor;
+  }
+  50% {
+    box-shadow: 0 0 0.75rem currentcolor;
+  }
+}
+
+.contamination-marker {
+  background: currentcolor;
+  transform: translate(-50%, -50%);
+  animation: contamination-pulse 2.2s ease-in-out infinite;
+}
+
+.contamination-key {
+  background: currentcolor;
+  animation: contamination-key-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contamination-marker,
+  .contamination-key {
+    animation: none;
+  }
+}
+
+@utility gutter {
+  padding-inline: var(--gutter);
+}
+
+/*
+  The page's twelve-column grid.
+
+  The column gap scales with the viewport rather than sitting at a fixed 3rem:
+  at 768px, where the multi-column layouts first appear, eleven 48px gaps eat
+  most of the measure and leave the columns themselves about 15px wide, which
+  is how content ends up overflowing the window.
+*/
+@utility grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: clamp(1.25rem, 2.6vw, 3rem);
+}
+
+/* The site's only "container": a ruled measure that every section shares. */
+@utility measure {
+  width: 100%;
+  max-width: 96rem;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/*
+  Hero display type. Sized against viewport width so the machine and the
+  wordmark stay locked together at every breakpoint, and held small enough that
+  the solid first line clears the cabinet — only the outlined second line is
+  meant to run behind it.
+*/
+@utility type-monument {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(3.25rem, 9.6vw, 12rem);
+  line-height: 0.82;
+  letter-spacing: -0.046em;
+}
+
+@utility type-h2 {
+  font-size: clamp(2.1rem, 1.1rem + 3.4vw, 4.5rem);
+}
+
+@utility type-h3 {
+  font-size: clamp(1.5rem, 1.1rem + 1.1vw, 2.125rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Outlined display type — lets the machine read through the wordmark. */
+@utility type-hollow {
+  color: transparent;
+  -webkit-text-stroke: clamp(1px, 0.13vw, 2.5px) var(--color-fg);
+  paint-order: stroke fill;
+}
+
+/* Spec and control text. Grotesque, never below 18px, never letterspaced out. */
+@utility type-data {
+  font-family: var(--font-display);
+  font-weight: 560;
+  font-size: var(--text-ui);
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility type-figure {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.86;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* A single link treatment used everywhere a link appears in prose. */
+@utility link-rule {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in oklab, currentcolor 40%, transparent);
+  transition: text-decoration-color 200ms var(--ease-out-expo);
+
+  &:hover {
+    text-decoration-color: currentcolor;
+  }
+}
+
+/*
+  Film grain. Gives the ink backgrounds material depth without resorting to
+  gradients or glows. Single inline SVG, no network request.
+*/
+@utility grain {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.28'/%3E%3C/svg%3E");
+  }
+}
+
+@utility field {
+  width: 100%;
+  background: color-mix(in oklab, var(--color-ink-950) 60%, transparent);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+  padding: 0.85rem 1rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--text-ui);
+  color: var(--color-fg);
+  transition:
+    border-color 180ms var(--ease-out-expo),
+    background-color 180ms var(--ease-out-expo);
+
+  &::placeholder {
+    color: var(--color-fg-dim);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-ink-500);
+  }
+
+  &:focus {
+    border-color: var(--color-teal-400);
+    background: color-mix(in oklab, var(--color-ink-950) 85%, transparent);
+    outline: none;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--color-signal-bright);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

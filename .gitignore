@@ -1,0 +1,29 @@
+node_modules
+dist
+*.tsbuildinfo
+
+# Visual review output from `npm run shots`.
+shots
+playwright-report
+test-results
+
+# Throwaway Python environment used to pull text and images out of the brochure.
+.venv-tools
+
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+
+# Working notes. README.md is the only markdown that belongs on GitHub.
+*.md
+!README.md
+docs/
+
+# Workshop sources (brochure PDF, source GLBs, raw photography). The site
+# serves the processed files in public/.
+assets/
+
+# Local asset pipeline and screenshot harness. Not needed to build or deploy.
+scripts/

@@ -1,0 +1,55 @@
+{
+  "name": "gaire-freshpods",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Gaire Freshpods — smart helmet sanitization machine. Product site.",
+  "scripts": {
+    "assets": "node scripts/build-assets.mjs",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "shots": "node scripts/shots.mjs",
+    "measure": "node scripts/measure.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/noto-sans-devanagari": "^5.3.0",
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.3.0",
+    "motion": "^12.23.12",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.2.6",
+    "@fontsource-variable/newsreader": "^5.2.6",
+    "@gltf-transform/cli": "^4.2.1",
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/extensions": "^4.2.1",
+    "@gltf-transform/functions": "^4.2.1",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^6.1.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^17.11.0",
+    "meshoptimizer": "^0.25.0",
+    "playwright": "^1.62.1",
+    "sharp": "^0.34.3",
+    "tailwindcss": "^4.1.13",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.44.0",
+    "vite": "^7.1.6"
+  },
+  "allowScripts": {
+    "sharp@0.35.4": true,
+    "sharp@0.34.5": true,
+    "esbuild@0.28.2": true
+  }
+}
