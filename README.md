@@ -20,7 +20,7 @@ npm run preview    # serve the built site
 npm run lint
 ```
 
-Push to `main` on GitHub. Cloudflare Pages builds that commit and publishes
+Push to `main` on GitHub. Cloudflare Pages builds that commit automatically and publishes
 [gaire-freshpods.pages.dev](https://gaire-freshpods.pages.dev).
 
 Node 20 or newer. The 3D assets and responsive images are committed under
