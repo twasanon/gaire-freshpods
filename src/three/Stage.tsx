@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useReducedMotion } from 'motion/react';
 import * as THREE from 'three';
-import { Machine, type MachineDrive } from './Machine';
+import { Machine, preloadMachine, type MachineDrive } from './Machine';
 import { StudioEnv } from './StudioEnv';
 import { FloorGlow } from './FloorGlow';
 import { FogVeil } from './FogVeil';
@@ -15,6 +15,8 @@ import { detectCapability } from '../lib/device';
 import { useStage, type Act } from '../state/stage';
 
 const CYCLE_YAW = -0.16;
+
+preloadMachine(detectCapability().tier);
 
 /**
  * The page's single WebGL context. Mounted by StageLoader, which owns the

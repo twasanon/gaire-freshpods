@@ -68,3 +68,17 @@ function probe(): Capability {
 }
 
 export const modelUrl = (tier: Tier) => `/models/machine-${tier}.glb`;
+
+/**
+ * Start the GLB download without importing three.js.
+ *
+ * Stage is a lazy chunk (~330 KB). If we waited for `useGLTF` inside it, the
+ * model would not even begin until that chunk had finished. This fetch runs
+ * from first paint, in parallel, and lands in the HTTP cache for `useGLTF`.
+ */
+export function prefetchMachineModel() {
+  if (typeof window === 'undefined') return;
+  const cap = detectCapability();
+  if (!cap.webgl) return;
+  void fetch(modelUrl(cap.tier), { credentials: 'same-origin' });
+}
