@@ -74,7 +74,7 @@ export function Stage() {
           </Suspense>
           <FloorGlow colorway={colorway} />
           <CycleDriver drive={drive} fog={fog} helmetReveal={helmetReveal} />
-          <VisibilityGuard />
+          <VisibilityGuard active={!!act} />
         </Canvas>
       </Boundary>
       {/*
@@ -313,15 +313,16 @@ function band(t: number, a: number, b: number, c: number, d: number) {
 }
 
 /** Stops the loop when the tab is hidden, and frees GPU memory on unmount. */
-function VisibilityGuard() {
+function VisibilityGuard({ active }: { active: boolean }) {
   const gl = useThree((s) => s.gl);
   const setFrameloop = useThree((s) => s.setFrameloop);
 
   useEffect(() => {
-    const onVisibility = () => setFrameloop(document.hidden ? 'never' : 'always');
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [setFrameloop]);
+    const apply = () => setFrameloop(document.hidden || !active ? 'never' : 'always');
+    apply();
+    document.addEventListener('visibilitychange', apply);
+    return () => document.removeEventListener('visibilitychange', apply);
+  }, [active, setFrameloop]);
 
   useEffect(() => () => gl.dispose(), [gl]);
   return null;
