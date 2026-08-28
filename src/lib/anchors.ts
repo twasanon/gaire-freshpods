@@ -1,11 +1,11 @@
 /**
- * In-page hash navigation that the cycle scroll gate cannot intercept.
+ * In-page hash navigation with a header offset.
  *
- * The cycle track is several viewports tall and clamps scroll to the next
- * phase. A native jump from the footer to Colours, or from the hero to The
- * problem, has to pass through that track. The gate then treats the jump as a
- * gesture and parks the visitor in the chamber. Clicks on `#…` links are
- * therefore handled here: pause the gate, jump in one frame, then release.
+ * Native fragment scrolling ignores the fixed header and can fight
+ * `scroll-smooth` on the document. Clicks on `#…` links jump in one frame
+ * so Machine, Cycle, The problem, and Specifications land just below the nav.
+ * Reloads still start at the top (`src/lib/scroll-start.ts`); a first visit
+ * with a hash (a shared link) honours it.
  */
 
 import { isReload } from './scroll-start';

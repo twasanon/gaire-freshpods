@@ -1,20 +1,63 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { motion, useMotionValue, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { Media } from '../components/Media';
 import { Reveal } from '../components/Reveal';
 import { SectionHead } from '../components/ui';
 import { useStage } from '../state/stage';
 import { useLocale } from '../state/locale';
-import { beginPageJump, isPageJumping } from '../lib/anchors';
 
 /**
- * A held close-up of the chamber, scrubbed by scroll.
+ * A held close-up of the chamber, scrubbed by native page scroll.
  *
- * The machine does not turn here — idle yaw from the hero is snapped away so
- * the cabinet cannot unwind a minute of spinning. Lights, fog and the LCD
- * are the only motion. Copy sits on its own ground so it never collides with
- * the window, and a fade at the bottom of the frame crops the cabinet body.
+ * The browser owns scrolling. This section only maps how far the visitor has
+ * travelled through the track onto the machine and the copy. A tall track
+ * plus plateau mapping means a normal swipe almost always sees every stage;
+ * a violent flick is allowed to leave.
+ *
+ * Visual progress eases toward scroll with a hard cap (~500 ms for a full-range
+ * jump) so a flick walks through Load → Disinfection → Aroma → Dry instead of
+ * teleporting, without ever spending seconds catching up.
  */
+
+/** Long holds, short blends. Values are scroll 0–1. Tune by eye, not as sacred. */
+const STORY_SPANS = [
+  [0.0, 0.18, 0.0, 0.18],
+  [0.18, 0.25, 0.18, 0.28],
+  [0.25, 0.43, 0.28, 0.48],
+  [0.43, 0.5, 0.48, 0.52],
+  [0.5, 0.68, 0.52, 0.7],
+  [0.68, 0.75, 0.7, 0.78],
+  [0.75, 0.95, 0.78, 0.96],
+  [0.95, 1.0, 0.96, 1.0],
+] as const;
+
+const PLATEAU_SCROLL = [0.09, 0.34, 0.59, 0.85];
+const CATCH_UP_MS = 500;
+
+function storyFromScroll(scroll: number) {
+  const s = Math.min(1, Math.max(0, scroll));
+  for (const [s0, s1, t0, t1] of STORY_SPANS) {
+    if (s <= s1) {
+      const u = s1 === s0 ? 1 : (s - s0) / (s1 - s0);
+      return t0 + u * (t1 - t0);
+    }
+  }
+  return 1;
+}
+
+function copyIndex(story: number) {
+  if (story < 0.25) return 0;
+  if (story < 0.5) return 1;
+  if (story < 0.75) return 2;
+  return 3;
+}
+
+function trackIsHeld(node: HTMLDivElement | null) {
+  if (!node) return false;
+  const r = node.getBoundingClientRect();
+  return r.top <= 96 && r.bottom >= window.innerHeight * 0.55;
+}
+
 export function Cycle() {
   const { copy } = useLocale();
   const phases = copy.cycle.phases;
@@ -24,22 +67,10 @@ export function Cycle() {
   const [phase, setPhase] = useState(0);
   const desiredPhase = useRef(0);
   const phaseRef = useRef(0);
-  const unlocking = useRef(false);
-  const engaged = useRef(false);
-  const lastTouchY = useRef<number | null>(null);
-  const scrollProgress = useRef(0);
   const phaseMotion = useMotionValue(0);
-  const lastUserInput = useRef(performance.now());
-  const lastGesture = useRef(0);
-  const lastWheel = useRef(0);
-  const gestureFromCycle = useRef(false);
-  const autoplay = useRef(false);
-  const autoplayClock = useRef(performance.now());
-  const autoplayOriginP = useRef<number | null>(null);
-  const wasSticky = useRef(false);
-  const gestureDir = useRef<0 | 1 | -1>(0);
-  const releasedAt = useRef(0);
   const driveProgress = useMotionValue(0);
+  const visualScroll = useRef(0);
+  const primed = useRef(false);
 
   const { scrollYProgress } = useScroll({ target: track, offset: ['start start', 'end end'] });
 
@@ -48,30 +79,44 @@ export function Cycle() {
     phaseMotion.set(phase);
   }, [phase, phaseMotion]);
 
-  useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    if (autoplay.current) return;
-    // After autoplay pauses, a lagging scroll event would rewind the playhead
-    // (Aroma jumping back to empty). Honour a rewind only when the visitor is
-    // actually scrolling up.
-    const prev = scrollProgress.current;
-    if (v < prev - 0.012 && gestureDir.current !== -1 && performance.now() - releasedAt.current < 800) {
-      const raw = Math.min(phases.length - 1, Math.max(0, Math.floor(prev * phases.length + 0.12)));
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const maxRate = 1 / (CATCH_UP_MS / 1000);
+
+    const tick = (now: number) => {
+      const dt = Math.min(0.064, (now - last) / 1000);
+      last = now;
+      const raw = Math.min(1, Math.max(0, scrollYProgress.get()));
+      const held = trackIsHeld(track.current);
+      let visual = visualScroll.current;
+
+      if (!primed.current || reduced || !held) {
+        visual = raw;
+        primed.current = true;
+      } else {
+        const err = raw - visual;
+        const step = maxRate * dt;
+        visual = Math.abs(err) <= Math.max(step, 0.008) ? raw : visual + Math.sign(err) * step;
+      }
+
+      visualScroll.current = visual;
+      const story = storyFromScroll(visual);
+      driveProgress.set(story);
+      cycleProgress.current = story;
+
+      const rawPhase = copyIndex(story);
       const shown = phaseRef.current;
-      desiredPhase.current = Math.min(shown + 1, Math.max(shown - 1, raw));
-      return;
-    }
-    scrollProgress.current = v;
-    driveProgress.set(v);
-    // Bias forward slightly so the copy changes as the visual starts to change,
-    // not after it has finished. Desired is clamped to ±1 of the shown step so
-    // a flick cannot queue Load → Dry.
-    const raw = Math.min(phases.length - 1, Math.max(0, Math.floor(v * phases.length + 0.12)));
-    const shown = phaseRef.current;
-    desiredPhase.current = Math.min(shown + 1, Math.max(shown - 1, raw));
-  });
+      desiredPhase.current = Math.min(shown + 1, Math.max(shown - 1, rawPhase));
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [cycleProgress, driveProgress, reduced, scrollYProgress]);
 
   useEffect(() => {
-    const stepMs = reduced ? 80 : 280;
+    const stepMs = reduced ? 60 : 160;
     const id = window.setInterval(() => {
       setPhase((prev) => {
         const next = desiredPhase.current;
@@ -81,253 +126,6 @@ export function Cycle() {
     }, stepMs);
     return () => window.clearInterval(id);
   }, [reduced]);
-
-  /**
-   * While the visitor is already in the close-up, a gesture may only reach the
-   * neighbouring phase so a flick cannot skip Load → Dry. A flick that *starts*
-   * outside the track (footer → hero, or hero → footer) must pass through;
-   * grabbing it mid-swipe is what stuck people at Disinfection. Hash jumps
-   * (`src/lib/anchors.ts`) also pause this loop.
-   */
-  useEffect(() => {
-    const snapToDriven = () => {
-      const node = track.current;
-      if (!node) return;
-      const scrollable = Math.max(1, node.offsetHeight - window.innerHeight);
-      const trackTop = node.getBoundingClientRect().top + window.scrollY;
-      const y = trackTop + scrollable * scrollProgress.current;
-      document.documentElement.scrollTop = y;
-      window.scrollTo(0, y);
-    };
-
-    const trackIsHeld = () => {
-      const node = track.current;
-      if (!node) return false;
-      const r = node.getBoundingClientRect();
-      return r.top <= 96 && r.bottom >= window.innerHeight * 0.55;
-    };
-
-    const noteUser = () => {
-      if (isPageJumping()) {
-        lastUserInput.current = performance.now();
-        autoplay.current = false;
-        autoplayOriginP.current = null;
-        engaged.current = false;
-        gestureFromCycle.current = false;
-        return;
-      }
-      if (autoplay.current) {
-        snapToDriven();
-        releasedAt.current = performance.now();
-      }
-      lastUserInput.current = performance.now();
-      lastGesture.current = performance.now();
-      autoplay.current = false;
-      autoplayOriginP.current = null;
-    };
-
-    const beginGesture = () => {
-      noteUser();
-      // Latch at gesture *start*. If we re-evaluate mid-swipe, a footer→hero
-      // flick would engage as soon as the track peeked in and get stuck.
-      gestureFromCycle.current = trackIsHeld();
-    };
-
-    const gate = (direction: 1 | -1) => {
-      const el = track.current;
-      if (!el || unlocking.current || autoplay.current || isPageJumping()) return null;
-      // Through-scrolls (bottom of the page → top, or the reverse) never
-      // started on the close-up. Do not clamp them.
-      if (!gestureFromCycle.current) {
-        engaged.current = false;
-        return null;
-      }
-      const bounds = el.getBoundingClientRect();
-      const inSection = bounds.bottom >= 48 && bounds.top <= window.innerHeight - 48;
-      if (inSection) engaged.current = true;
-      if (!engaged.current) return null;
-
-      const scrollable = Math.max(1, el.offsetHeight - window.innerHeight);
-      const trackTop = el.getBoundingClientRect().top + window.scrollY;
-      const shown = phaseRef.current;
-      const last = phases.length - 1;
-      const yFor = (p: number, bias: number) => trackTop + scrollable * ((p + bias) / phases.length);
-
-      if (direction > 0 && shown >= last) {
-        engaged.current = false;
-        return null;
-      }
-      if (direction < 0 && shown <= 0) {
-        const loadStart = yFor(0, 0.08);
-        if (window.scrollY <= loadStart + 8) {
-          engaged.current = false;
-          return null;
-        }
-        return loadStart;
-      }
-
-      // Up-limit must sit *inside* the previous phase. 0.88 landed on the
-      // +0.12 copy-bias boundary, which still mapped to the current phase
-      // (Disinfection) and could not be left.
-      return direction > 0 ? yFor(shown + 1, 0.12) : yFor(shown - 1, 0.35);
-    };
-
-    const onScroll = (now: number) => {
-      // Only clamp while a finger or wheel is moving. After a hash jump the
-      // track can still peek into view; clamping then yanks Colours / Problem
-      // back into the chamber.
-      if (now - lastGesture.current > 120) return;
-      const down = gate(1);
-      if (down != null && window.scrollY > down + 0.5) window.scrollTo(0, down);
-      const up = gate(-1);
-      if (up != null && window.scrollY < up - 0.5) window.scrollTo(0, up);
-    };
-
-    const tickAutoplay = (now: number) => {
-      if (reduced || isPageJumping()) return;
-      const el = track.current;
-      if (!el) return;
-
-      const scrollable = Math.max(1, el.offsetHeight - window.innerHeight);
-      const rect = el.getBoundingClientRect();
-      const trackTop = rect.top + window.scrollY;
-      const p = (window.scrollY - trackTop) / scrollable;
-      const sticky = rect.top <= 96 && rect.bottom >= window.innerHeight * 0.6;
-      if (sticky && !wasSticky.current && !autoplay.current) lastUserInput.current = now;
-      wasSticky.current = sticky;
-
-      const leftSection = rect.bottom < 48 || rect.top > window.innerHeight - 48;
-      if (!autoplay.current && (!sticky || p < -0.01 || p >= 0.97 || leftSection)) return;
-      if (autoplay.current && leftSection) {
-        autoplay.current = false;
-        autoplayOriginP.current = null;
-        return;
-      }
-      if (!autoplay.current && now - lastUserInput.current < 900) return;
-
-      if (!autoplay.current) {
-        autoplay.current = true;
-        engaged.current = true;
-        // Resume from the visual playhead, not window.scrollY — iOS often
-        // lags behind, which made a phase restart from empty after a flick.
-        autoplayOriginP.current = Math.min(0.97, Math.max(0, scrollProgress.current));
-        autoplayClock.current = now;
-      }
-
-      // 5s per phase — half of the ~10s each phase was taking on a phone.
-      // Drive the bars and chamber from wall-clock so a dropped scrollTo
-      // cannot stretch a phase; keep the page scrolled to match.
-      const originP = autoplayOriginP.current ?? 0;
-      const driven = Math.min(0.97, originP + (now - autoplayClock.current) / 1000 / (phases.length * 5));
-      scrollProgress.current = driven;
-      driveProgress.set(driven);
-      const raw = Math.min(phases.length - 1, Math.max(0, Math.floor(driven * phases.length + 0.12)));
-      desiredPhase.current = Math.min(phaseRef.current + 1, Math.max(phaseRef.current - 1, raw));
-      const y = trackTop + scrollable * driven;
-      document.documentElement.scrollTop = y;
-      window.scrollTo(0, y);
-    };
-
-    let raf = 0;
-    const tick = (now: number) => {
-      if (isPageJumping()) {
-        autoplay.current = false;
-        autoplayOriginP.current = null;
-        engaged.current = false;
-        lastUserInput.current = now;
-      } else {
-        onScroll(now);
-        tickAutoplay(now);
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-
-    const onWheel = (e: WheelEvent) => {
-      const now = performance.now();
-      if (now - lastWheel.current > 180) beginGesture();
-      else noteUser();
-      lastWheel.current = now;
-      gestureDir.current = e.deltaY > 0 ? 1 : -1;
-      const limit = gate(e.deltaY > 0 ? 1 : -1);
-      if (limit == null) return;
-      if (e.deltaY > 0 && window.scrollY >= limit - 1) {
-        e.preventDefault();
-        window.scrollTo(0, limit);
-      } else if (e.deltaY < 0 && window.scrollY <= limit + 1) {
-        e.preventDefault();
-        window.scrollTo(0, limit);
-      }
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      beginGesture();
-      lastTouchY.current = e.touches[0]?.clientY ?? null;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      noteUser();
-      const y = e.touches[0]?.clientY;
-      if (y == null || lastTouchY.current == null) return;
-      const goingDown = lastTouchY.current - y > 0;
-      gestureDir.current = goingDown ? 1 : -1;
-      lastTouchY.current = y;
-      const limit = gate(goingDown ? 1 : -1);
-      if (limit == null) return;
-      if (goingDown && window.scrollY >= limit - 12) {
-        e.preventDefault();
-        window.scrollTo(0, limit);
-      } else if (!goingDown && window.scrollY <= limit + 12) {
-        e.preventDefault();
-        window.scrollTo(0, limit);
-      }
-    };
-
-    const onTouchEnd = () => {
-      lastTouchY.current = null;
-    };
-
-    const onHash = () => {
-      beginPageJump();
-      unlocking.current = true;
-      engaged.current = false;
-      autoplay.current = false;
-      autoplayOriginP.current = null;
-      lastUserInput.current = performance.now();
-      window.setTimeout(() => {
-        unlocking.current = false;
-      }, 1600);
-    };
-
-    window.addEventListener('hashchange', onHash);
-    window.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd, { passive: true });
-    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('hashchange', onHash);
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [driveProgress, phases.length, reduced]);
-
-  useEffect(() => {
-    let raf = 0;
-    const n = phases.length;
-    const loop = () => {
-      const start = phaseRef.current / n;
-      const end = (phaseRef.current + 1) / n;
-      cycleProgress.current = Math.min(end, Math.max(start, scrollProgress.current));
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [cycleProgress, phases.length]);
 
   useEffect(() => {
     const el = track.current;
@@ -346,20 +144,9 @@ export function Cycle() {
   const goToPhase = (i: number) => {
     const el = track.current;
     if (!el) return;
-    unlocking.current = true;
-    autoplay.current = false;
-    autoplayOriginP.current = null;
-    lastUserInput.current = performance.now();
-    desiredPhase.current = i;
-    phaseRef.current = i;
-    setPhase(i);
-    const scrollable = el.offsetHeight - window.innerHeight;
+    const scrollable = Math.max(1, el.offsetHeight - window.innerHeight);
     const trackTop = el.getBoundingClientRect().top + window.scrollY;
-    const y = trackTop + scrollable * ((i === 0 ? 0.01 : i + 0.08) / phases.length);
-    window.scrollTo({ top: y, behavior: reduced ? 'auto' : 'smooth' });
-    window.setTimeout(() => {
-      unlocking.current = false;
-    }, 900);
+    window.scrollTo(0, trackTop + scrollable * PLATEAU_SCROLL[i]);
   };
 
   const active = phases[phase];
@@ -372,7 +159,7 @@ export function Cycle() {
         </div>
       </div>
 
-      <div ref={track} className="relative z-30 h-[360svh] md:h-[280svh]">
+      <div ref={track} className="relative z-30 h-[520svh] md:h-[420svh]">
         <div className="sticky top-20 h-[calc(100svh-5rem)] overflow-hidden">
           {/* A shallow floor fade grounds the cabinet without obscuring the helmet. */}
           <div

@@ -31,7 +31,7 @@ type StageValue = {
   touched: boolean;
   markTouched: () => void;
 
-  /** 0–1 progress through the cycle section, written by scroll, read in useFrame. */
+  /** 0–1 eased story progress through the cycle, written by Cycle, read in useFrame. */
   cycleProgress: { current: number };
   cyclePhase: number;
   setCyclePhase: (i: number) => void;
