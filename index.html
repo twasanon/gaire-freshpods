@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#05191d" />
+    <script>
+      history.scrollRestoration = 'manual';
+      (function () {
+        var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        if (!nav || nav.type !== 'reload') return;
+        if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        scrollTo(0, 0);
+      })();
+    </script>
 
     <title>Gaire Freshpods, helmet sanitizing machines in Nepal</title>
     <meta

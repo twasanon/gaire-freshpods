@@ -8,6 +8,8 @@
  * therefore handled here: pause the gate, jump in one frame, then release.
  */
 
+import { isReload } from './scroll-start';
+
 let jumpUntil = 0;
 
 export function isPageJumping() {
@@ -67,7 +69,7 @@ export function installAnchorNav() {
   document.addEventListener('click', onClick, true);
   window.addEventListener('popstate', onPop);
 
-  if (location.hash.length > 1) {
+  if (location.hash.length > 1 && !isReload()) {
     beginPageJump();
     requestAnimationFrame(() => {
       const id = hashId(location.hash);
