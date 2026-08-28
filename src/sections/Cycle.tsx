@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { motion, useMotionValue, useReducedMotion, useTransform, type MotionValue } from 'motion/react';
 import { Media } from '../components/Media';
 import { Reveal } from '../components/Reveal';
 import { SectionHead } from '../components/ui';
@@ -16,7 +16,9 @@ import { useLocale } from '../state/locale';
  *
  * Visual progress eases toward scroll with a hard cap (~500 ms for a full-range
  * jump) so a flick walks through Load → Disinfection → Aroma → Dry instead of
- * teleporting, without ever spending seconds catching up.
+ * teleporting, without ever spending seconds catching up. The rAF catch-up
+ * loop only runs while the track is on screen and visual is behind scroll;
+ * off-screen Cycle work is zero.
  */
 
 /** Long holds, short blends. Values are scroll 0–1. Tune by eye, not as sacred. */
@@ -52,10 +54,15 @@ function copyIndex(story: number) {
   return 3;
 }
 
-function trackIsHeld(node: HTMLDivElement | null) {
-  if (!node) return false;
-  const r = node.getBoundingClientRect();
-  return r.top <= 96 && r.bottom >= window.innerHeight * 0.55;
+function clamp01(n: number) {
+  return Math.min(1, Math.max(0, n));
+}
+
+function readRaw(node: HTMLDivElement | null) {
+  if (!node) return 0;
+  const scrollable = Math.max(1, node.offsetHeight - window.innerHeight);
+  const top = node.getBoundingClientRect().top + window.scrollY;
+  return clamp01((window.scrollY - top) / scrollable);
 }
 
 export function Cycle() {
@@ -65,81 +72,122 @@ export function Cycle() {
   const { claimAct, cycleProgress } = useStage();
   const reduced = useReducedMotion();
   const [phase, setPhase] = useState(0);
-  const desiredPhase = useRef(0);
   const phaseRef = useRef(0);
   const phaseMotion = useMotionValue(0);
   const driveProgress = useMotionValue(0);
   const visualScroll = useRef(0);
-  const primed = useRef(false);
-
-  const { scrollYProgress } = useScroll({ target: track, offset: ['start start', 'end end'] });
-
-  useEffect(() => {
-    phaseRef.current = phase;
-    phaseMotion.set(phase);
-  }, [phase, phaseMotion]);
 
   useEffect(() => {
     let raf = 0;
+    let scheduled = 0;
     let last = performance.now();
+    let inView = false;
     const maxRate = 1 / (CATCH_UP_MS / 1000);
 
-    const tick = (now: number) => {
-      const dt = Math.min(0.064, (now - last) / 1000);
-      last = now;
-      const raw = Math.min(1, Math.max(0, scrollYProgress.get()));
-      const held = trackIsHeld(track.current);
-      let visual = visualScroll.current;
+    const stop = () => {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
 
-      if (!primed.current || reduced || !held) {
-        visual = raw;
-        primed.current = true;
-      } else {
-        const err = raw - visual;
-        const step = maxRate * dt;
-        visual = Math.abs(err) <= Math.max(step, 0.008) ? raw : visual + Math.sign(err) * step;
-      }
-
+    const publish = (visual: number) => {
       visualScroll.current = visual;
       const story = storyFromScroll(visual);
       driveProgress.set(story);
       cycleProgress.current = story;
+      const next = copyIndex(story);
+      if (next === phaseRef.current) return;
+      phaseRef.current = next;
+      phaseMotion.set(next);
+      setPhase(next);
+    };
 
-      const rawPhase = copyIndex(story);
-      const shown = phaseRef.current;
-      desiredPhase.current = Math.min(shown + 1, Math.max(shown - 1, rawPhase));
+    const tick = (now: number) => {
+      const dt = Math.min(0.064, (now - last) / 1000);
+      last = now;
+      const raw = readRaw(track.current);
+      if (!inView) {
+        publish(raw);
+        stop();
+        return;
+      }
+      const err = raw - visualScroll.current;
+      const step = maxRate * dt;
+      if (Math.abs(err) <= Math.max(step, 0.008)) {
+        publish(raw);
+        stop();
+        return;
+      }
+      publish(visualScroll.current + Math.sign(err) * step);
       raf = requestAnimationFrame(tick);
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [cycleProgress, driveProgress, reduced, scrollYProgress]);
+    const onProgress = () => {
+      const raw = readRaw(track.current);
+      if (!inView || reduced) {
+        publish(raw);
+        stop();
+        return;
+      }
+      if (Math.abs(raw - visualScroll.current) <= 0.008) {
+        publish(raw);
+        stop();
+        return;
+      }
+      if (!raf) {
+        last = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
+    };
 
-  useEffect(() => {
-    const stepMs = reduced ? 60 : 160;
-    const id = window.setInterval(() => {
-      setPhase((prev) => {
-        const next = desiredPhase.current;
-        if (prev === next) return prev;
-        return prev + (next > prev ? 1 : -1);
+    const onScroll = () => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(() => {
+        scheduled = 0;
+        onProgress();
       });
-    }, stepMs);
-    return () => window.clearInterval(id);
-  }, [reduced]);
+    };
 
-  useEffect(() => {
+    const listen = () => {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('scrollend', onProgress, { passive: true });
+    };
+
+    const unlisten = () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scrollend', onProgress);
+      if (scheduled) {
+        cancelAnimationFrame(scheduled);
+        scheduled = 0;
+      }
+    };
+
     const el = track.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => claimAct('cycle', entries[0].isIntersecting), {
-      threshold: 0,
-      rootMargin: '0px',
-    });
-    io.observe(el);
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries[0].isIntersecting;
+        inView = visible;
+        claimAct('cycle', visible);
+        unlisten();
+        if (visible) {
+          listen();
+          onProgress();
+        } else {
+          publish(readRaw(track.current));
+          stop();
+        }
+      },
+      { threshold: 0, rootMargin: '0px' },
+    );
+    if (el) io.observe(el);
+
     return () => {
+      stop();
+      unlisten();
       io.disconnect();
       claimAct('cycle', false);
     };
-  }, [claimAct]);
+  }, [claimAct, cycleProgress, driveProgress, phaseMotion, reduced]);
 
   const goToPhase = (i: number) => {
     const el = track.current;
